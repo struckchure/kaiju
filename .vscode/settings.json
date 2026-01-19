@@ -98,7 +98,9 @@
     "Viewports",
     "Vulkan"
   ],
-  "[go]": {
-    "editor.rulers": [80, 90]
+  "editor.rulers": [80, 90],
+  "[yaml]": {
+    "editor.rulers": [],
+    "editor.tabSize": 2
   }
 }
