@@ -63,6 +63,7 @@ type StageView struct {
 	manager       editor_stage_manager.StageManager
 	transformTool transform_tools.TransformTool
 	selectTool    select_tool.SelectTool
+	transformMan  TransformationManager
 }
 
 func (v *StageView) Manager() *editor_stage_manager.StageManager { return &v.manager }
@@ -81,6 +82,7 @@ func (v *StageView) Initialize(host *engine.Host, ed EditorStageViewWorkspaceInt
 	v.host = host
 	v.manager.NewStage()
 	v.transformTool.Initialize(host, v, ed.History(), &ed.Settings().Snapping)
+	v.transformMan.Initialize(v, ed.History(), &ed.Settings().Snapping)
 	v.selectTool.Init(host, &v.manager)
 	v.createViewportGrid()
 	v.setupCamera(ed)
@@ -111,6 +113,12 @@ func (v *StageView) Close() {
 func (v *StageView) Update(deltaTime float64, proj *project.Project) bool {
 	defer tracing.NewRegion("StageView.Update").End()
 	v.gridTransform.ResetDirty()
+	// If we are currently using any of the transformation tools, we shouldn't
+	// do any of the other updates like camera
+	if v.transformMan.IsBusy() {
+		v.transformMan.Update(v.host)
+		return true
+	}
 	if v.camera.Update(v.host, deltaTime) {
 		v.updateGridPosition()
 		v.transformTool.Cancel()
@@ -196,7 +204,9 @@ func (v *StageView) setupCamera(ed EditorStageViewWorkspaceInterface) {
 			pjs.EditorSettings.CameraMode = editor_controls.EditorCameraMode2d
 		}
 		v.updateGridPosition()
-		pjs.Save(ed.ProjectFileSystem())
+		if err := pjs.Save(ed.ProjectFileSystem()); err != nil {
+			slog.Error("there was an error saving the project settings during setupCamera", "error", err)
+		}
 	})
 	v.camera.SetMode(pjs.EditorSettings.CameraMode, v.host)
 	v.camera.Settings = &ed.Settings().EditorCamera

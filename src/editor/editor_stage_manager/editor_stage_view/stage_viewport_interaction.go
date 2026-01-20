@@ -52,6 +52,10 @@ func (v *StageView) processViewportInteractions() {
 	if v.transformTool.Update() {
 		return
 	}
+	v.transformMan.Update(v.host)
+	if v.transformMan.IsBusy() {
+		return
+	}
 	// TODO:  This is to prevent deselecting and box selection if the mouse was
 	// over the menu bar area. Probably should do this check in a better way
 	if m.ScreenPosition().Y() <= menuBarHeightArea {

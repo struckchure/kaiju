@@ -184,10 +184,10 @@ func (vr *Vulkan) renderEach(cmd vk.CommandBuffer, pipeline vk.Pipeline, layout 
 	}
 }
 
-func (vr *Vulkan) Draw(renderPass *RenderPass, drawings []ShaderDraw, lights LightsForRender) bool {
+func (vr *Vulkan) Draw(renderPass *RenderPass, drawings []ShaderDraw, lights LightsForRender) {
 	defer tracing.NewRegion("Vulkan.Draw").End()
 	if !vr.hasSwapChain || len(drawings) == 0 {
-		return false
+		return
 	}
 	drawingAnything := false
 	doDrawings := make([]bool, len(drawings))
@@ -209,10 +209,11 @@ func (vr *Vulkan) Draw(renderPass *RenderPass, drawings []ShaderDraw, lights Lig
 		}
 		p.Unpin()
 	}
-	if !drawingAnything {
-		return false
+	ext := vk.Extent2D{
+		Width:  max(vr.swapChainExtent.Width, uint32(renderPass.construction.Width)),
+		Height: max(vr.swapChainExtent.Height, uint32(renderPass.construction.Height)),
 	}
-	renderPass.beginNextSubpass(vr.currentFrame, vr.swapChainExtent, renderPass.construction.ImageClears)
+	renderPass.beginNextSubpass(vr.currentFrame, ext, renderPass.construction.ImageClears)
 	for i := range drawings {
 		d := &drawings[i]
 		if doDrawings[i] {
@@ -224,7 +225,7 @@ func (vr *Vulkan) Draw(renderPass *RenderPass, drawings []ShaderDraw, lights Lig
 	renderPass.ExecuteSecondaryCommands()
 	for i := range renderPass.subpasses {
 		s := &renderPass.subpasses[i]
-		renderPass.beginNextSubpass(vr.currentFrame, vr.swapChainExtent, renderPass.construction.ImageClears)
+		renderPass.beginNextSubpass(vr.currentFrame, ext, renderPass.construction.ImageClears)
 		cmd := &s.cmd[vr.currentFrame]
 		vk.CmdBindPipeline(cmd.buffer, vulkan_const.PipelineBindPointGraphics, s.shader.RenderId.graphicsPipeline)
 		imageInfos := make([]vk.DescriptorImageInfo, len(s.sampledImages))
@@ -255,7 +256,6 @@ func (vr *Vulkan) Draw(renderPass *RenderPass, drawings []ShaderDraw, lights Lig
 	}
 	renderPass.endSubpasses()
 	vr.forceQueueCommand(renderPass.cmd[vr.currentFrame])
-	return true
 }
 
 func (vr *Vulkan) prepCombinedTargets(passes []*RenderPass) {
